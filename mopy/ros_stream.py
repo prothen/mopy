@@ -35,6 +35,7 @@ class ExternalVisionROS(ExternalVision):
         self.filter_active = rp.get_param('~filter_measurements', False)
         self._debug_streams = rp.get_param('~debug_streams', False)
         self._debug_is_enabled = rp.get_param('~debug_is_enabled', False)
+        self._ip = rp.get_param('~ip', "11.0.0.10")
 
         # Configure placeholder messages and publishers
         self.messages = dict()

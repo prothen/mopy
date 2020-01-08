@@ -5,6 +5,7 @@
     <arg name="filter" default="False"/>
     <arg name="debug" default="False"/>
     <arg name="debug_streams" default="False"/>
+    <arg name="ip" default="11.0.0.10"/>
 
     <node name="mopy" pkg="mopy" type="stream_ros.py" output="screen">
 
@@ -12,6 +13,8 @@
         <param name="filter_measurements" value="$(arg filter)"/>
         <param name="debug_is_enabled" value="$(arg debug)"/>
         <param name="debug_streams" value="$(arg debug_streams)"/>
+        <param name="ip" value="$(arg ip)"/>
+
         <remap from="~placeholder" to="~placeholder" />
 
     </node>

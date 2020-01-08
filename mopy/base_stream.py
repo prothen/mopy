@@ -42,6 +42,7 @@ class ExternalVision:
         self.models_requested = model_names
         self.body_streams = dict()
         self.bodies = dict()
+        self._ip = "11.0.0.10"
 
         # Define event loop
         self.event_loop = asyncio.get_event_loop()
@@ -114,7 +115,7 @@ class ExternalVision:
         try:
             print('Executing event loop now.')
             # Return QRT Connection object (see qtm -> qrt.py)
-            connection = await qtm.connect("11.0.0.10")
+            connection = await qtm.connect(self._ip)
 
             # Terminate loop in case of unsuccessful connection attempt
             if connection is None:
