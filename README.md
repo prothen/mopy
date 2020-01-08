@@ -1,5 +1,5 @@
 # mopy
-Driver for motion capture from Qualisys using Python with the Qualisys Track Manager (QTM) API. 
+Driver for Qualisys motion capture system using Python with the Qualisys Track Manager (QTM) API. 
 Supports both local multiprocessed interface as well as ROS-based interface with corresponding launch files.
 
 ## Brief
