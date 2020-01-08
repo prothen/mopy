@@ -33,10 +33,12 @@ _For example_: Provided the launch command with `model:=testname` adding a remap
         - will create distinct topic for `modelnames` and filter states (todo) together with debug prints
 
 ## Setup
+- The following procedure is tested under Python 3.7
 - Clone this repository in a catkin compliant workspace structure.
     - e.g. `yourws/src/mopy`
 - Install dependencies
     - `pip install -r requirements.txt`
+    - `cd yourws/externals/transformations && python setup.py install`
 - build your workspace
     - `cd yourws && catkin build`
 - source the workspace environment variables

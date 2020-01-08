@@ -1,0 +1,4 @@
+[submodule "externals/transformations"]
+	path = externals/transformations
+	url = https://github.com/matthew-brett/transforms3d.git
+	branch = master
