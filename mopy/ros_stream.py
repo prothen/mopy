@@ -52,8 +52,8 @@ class ExternalVisionROS(ExternalVision):
         """ Initialise the interface-dependent stream objects. """
         for body_name in self.body_streams.keys():
             self.publishers.update(**{body_name: rp.Publisher('~' + body_name,
-                                      PoseStamped,
-                                      queue_size=1)})
+                                                              PoseStamped,
+                                                              queue_size=1)})
             tmp_msg = self._message_type()
             tmp_msg.header.frame_id = self._frame_id
 
@@ -64,11 +64,13 @@ class ExternalVisionROS(ExternalVision):
         for body_name, body in self.bodies.items():
             if self._debug_streams:
                 print('Stream start: \t{0}'.format(body_name))
+
             # Update message
             msg = self.messages[body_name]
             msg.header.stamp = rp.Time.now()
             p = msg.pose.position
             q = msg.pose.orientation
+
             # Parse rigid body information and stream
             p.x, p.y, p.z = body.p.tolist()
             q.w, q.x, q.y, q.z = body.q.tolist()

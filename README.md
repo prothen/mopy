@@ -23,7 +23,7 @@ _For example_: Provided the launch command with `model:=testname` adding a remap
 ### Raw Position and Attitude Measurement
 - Execute ROS node
     - `roslaunch mopy stream.launch`
-        - will create distinct topics for all visible models
+        - will create distinct topics for all models registered in current Qualisys configuration (server side)
     - `roslaunch mopy stream.launch model:=modelname`
         - will create distinct topic for `modelnames` (list of strings) without space in following syntax
             - `roslaunch mopy stream.launch model:=modelname1,modelname2 filter:=True debug:=True`
@@ -34,11 +34,15 @@ _For example_: Provided the launch command with `model:=testname` adding a remap
 
 ## Setup
 - Clone this repository in a catkin compliant workspace structure.
+    - e.g. `yourws/src/mopy`
 - Install dependencies
     - `pip install -r requirements.txt`
-    - `cd external/transformations && python setup.py install`
-- Compile and source `devel/setup.bash` to expose environment variable to shell and execute `roslaunch` and `rosrun` as detailed above.
-
+- build your workspace
+    - `cd yourws && catkin build`
+- source the workspace environment variables
+    - e.g. `source yourws/devel/setup.bash`
+- execute `roslaunch` and `rosrun` as detailed above.
+    
 ### Todo
 - [x] exit asyncio more gracefully and adjust
     - [x] improve exit by restructuring and using signal.SIGINT events
