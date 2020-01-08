@@ -34,8 +34,8 @@ class ExternalVision:
         """ Initialise the external vision class.
 
             If a list of model names (list of strings) is provided, the
-            selected models will be streamed. Otherwise all visible models
-            (at the time of the node execution) will be streamed.
+            selected models will be streamed. Otherwise all models
+            configured in the Qualisys server will be streamed.
 
         """
         self._debug_is_enabled = debug_is_enabled
