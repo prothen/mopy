@@ -19,7 +19,7 @@ in the launch file argument model_names a separate topic in the private namespac
  
 _For example_: Provided the launch command with `model:=testname` adding a remap to the launch file with `
         <remap from="~testname" to="/global_namespace/desired_topic" />`
- 
+- see also the documentation [here](https://qualisys.github.io/qualisys_python_sdk/index.html)
 ### Raw Position and Attitude Measurement
 - Execute ROS node
     - `roslaunch mopy stream.launch`
