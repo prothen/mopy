@@ -1,1 +1,3 @@
 qtm
+pyyaml
+rospkg
