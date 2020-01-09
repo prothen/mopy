@@ -15,7 +15,7 @@
         <param name="debug_streams" value="$(arg debug_streams)"/>
         <param name="ip" value="$(arg ip)"/>
 
-	<remap from="~storm" to="/mavros/vision_pose/pose" />
+	<remap from="~pose" to="~pose" />
 
     </node>
 </launch>
