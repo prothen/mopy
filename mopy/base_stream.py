@@ -58,6 +58,11 @@ class ExternalVision:
 
         return body_to_index
 
+    def _debug(self, msg):
+        """ Print debug message if debug_is_enabled is true. """
+        if self._debug_is_enabled:
+            print(msg)
+
     def _define_bodies(self):
         """ Define body dictionary with measurement state placeholders. """
         for body_name in self.body_streams.keys():
@@ -87,7 +92,7 @@ class ExternalVision:
             if any(np.isnan(p_m)) or any(np.isnan(R_m.flatten())):
                 continue
 
-            # Parse measured states p_m and q_m
+            # Parse measured states p_m and R_m
             body = self.bodies[body_name]
             q_m = tf.mat2quat(R_m)
             body.p, body.q = p_m, q_m

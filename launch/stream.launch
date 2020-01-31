@@ -1,21 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
 
-    <arg name="model" default=""/>
+    <arg name="models" default=""/>
     <arg name="filter" default="False"/>
+    <arg name="covariance" default="False"/>
+    <arg name="odom" default="True"/>
+    <arg name="publish_tf" default="True"/>
+    <arg name="frame_id" default="odom"/>
+    <arg name="ip" default="11.0.0.10"/>
     <arg name="debug" default="False"/>
     <arg name="debug_streams" default="False"/>
-    <arg name="ip" default="11.0.0.10"/>
 
     <node name="mopy" pkg="mopy" type="stream_ros.py" output="screen">
 
-        <param name="models" value="$(arg model)"/>
-        <param name="filter_measurements" value="$(arg filter)"/>
+        <param name="models" value="$(arg models)"/>
+        <param name="filter" value="$(arg filter)"/>
+        <param name="covariance" value="$(arg covariance)"/>
+        <param name="odom" value="$(arg odom)"/>
+        <param name="publish_tf" value="$(arg publish_tf)"/>
+        <param name="frame_id" value="$(arg frame_id)"/>
+        <param name="ip" value="$(arg ip)"/>
         <param name="debug_is_enabled" value="$(arg debug)"/>
         <param name="debug_streams" value="$(arg debug_streams)"/>
-        <param name="ip" value="$(arg ip)"/>
 
-	<remap from="~pose" to="~pose" />
+        <remap from="~pose" to="~pose" />
+        <remap from="~storm" to="/mavros/odometry/out" />
 
     </node>
 </launch>
