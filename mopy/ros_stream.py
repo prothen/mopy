@@ -137,7 +137,7 @@ class ExternalVisionROS(ExternalVision):
             tmp_msg = self._message_type()
             tmp_msg.header.frame_id = self._frame_id
             tmp_msg.child_frame_id = 'base_link'
-            tmp_msg.pose.covariance = np.diag(np.ones(6)*1.e-3)
+            tmp_msg.pose.covariance = np.diag(np.ones(6)*1.e-3).flatten()
             #'_'.join(["base_link", body_name])
 
             self.messages.update(**{body_name: tmp_msg})

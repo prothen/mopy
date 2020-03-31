@@ -91,7 +91,6 @@ class ExternalVision:
             R_m = np.array(R.matrix).reshape((3, 3), order='F')
             if any(np.isnan(p_m)) or any(np.isnan(R_m.flatten())):
                 continue
-
             # Parse measured states p_m and R_m
             body = self.bodies[body_name]
             q_m = tf.mat2quat(R_m)
