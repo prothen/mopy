@@ -11,40 +11,44 @@ __license__ = "BSD"
 __version__ = "1.0"
 
 
-from mopy.base_stream import ExternalVision
-
-import numpy as np
-import rospy as rp
-
+import numpy
+import rospy
 from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from nav_msgs.msg import Odometry
 
+
+from mopy.base_stream import ExternalVision
+
 MM2M = 1.e-3
 
 
+@attr.s
 class ExternalVisionROS(ExternalVision):
     """ Provides essential methods for the """
 
-    def __init__(self, model_names=None, debug_is_enabled=False):
-        super().__init__(model_names, debug_is_enabled)
+    def __attrs_post_init__(self):
+        super().__attrs_post_init__()
+        self._initialise_ros()
+
+    def _initialise_ros(self):
         # Create ROS node
-        rp.init_node('mopy', anonymous=False)
+        rospy.init_node('mopy', anonymous=False)
 
         # Fetch ros parameters from launch file configurations
-        self.models_requested = rp.get_param('~models', '').split(',')
+        self.models_requested = rospy.get_param('~models', '').split(',')
         self.models_requested = [None if self.models_requested == [''] else
                                  self.models_requested][0]
-        self.filter_active = rp.get_param('~filter', False)
-        use_odom = rp.get_param('~odom', False)
-        use_covariance = rp.get_param('~covariance', False)
+        self.filter_active = rospy.get_param('~filter', False)
+        use_odom = rospy.get_param('~odom', False)
+        use_covariance = rospy.get_param('~covariance', False)
         # todo: future tf publisher
-        publish_tf = rp.get_param('~publish_tf', False)
-        self._frame_id = rp.get_param('~frame_id', False)
-        self._debug_is_enabled = rp.get_param('~debug_is_enabled', False)
-        self._debug_streams = rp.get_param('~debug_streams', False)
+        publish_tf = rospy.get_param('~publish_tf', False)
+        self._frame_id = rospy.get_param('~frame_id', False)
+        self._debug_is_enabled = rospy.get_param('~debug_is_enabled', False)
+        self._debug_streams = rospy.get_param('~debug_streams', False)
         self._debug_is_enabled = self._debug_is_enabled or self._debug_streams
-        self._ip = rp.get_param('~ip', "11.0.0.10")
+        self._ip = rospy.get_param('~ip', "11.0.0.10")
 
         # Configure placeholder messages and publishers
         self.messages = dict()
@@ -131,13 +135,13 @@ class ExternalVisionROS(ExternalVision):
     def _define_streams(self):
         """ Initialise the interface-dependent stream objects. """
         for body_name in self.body_streams.keys():
-            self.publishers.update(**{body_name: rp.Publisher('~' + body_name,
+            self.publishers.update(**{body_name: rospy.Publisher('~' + body_name,
                                                               self._message_type,
                                                               queue_size=0)})
             tmp_msg = self._message_type()
             tmp_msg.header.frame_id = self._frame_id
             tmp_msg.child_frame_id = 'base_link'
-            tmp_msg.pose.covariance = np.diag(np.ones(6)*1.e-3).flatten()
+            tmp_msg.pose.covariance = numpy.diag(numpy.ones(6)*1.e-3).flatten()
             #'_'.join(["base_link", body_name])
 
             self.messages.update(**{body_name: tmp_msg})
@@ -148,20 +152,19 @@ class ExternalVisionROS(ExternalVision):
             self._debug('Stream start: \t{0}'.format(body_name))
 
             msg = self.messages[body_name]
-            msg.header.stamp = rp.Time.now()
+            msg.header.stamp = rospy.Time.now()
             self._message_conversion(msg, body)
             self.publishers[body_name].publish(msg)
 
             self._debug('Stream complete: \t{0}'.format(body_name))
 
 
+@attr.s
 class ExternalVisionROSFiltered(ExternalVisionROS):
-    def __init__(self, model_names=None, debug_is_enabled=False):
-        super().__init__(model_names, debug_is_enabled)
-        self._message_type = PoseWithCovarianceStamped
 
-        # Configure filter parameters
-        # todo
+    def __attrs_post_init__(self):
+        super().__attrs_post_init__()
+        self._message_type = PoseWithCovarianceStamped
 
     def _define_filters(self):
         pass
