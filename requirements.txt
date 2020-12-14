@@ -1,3 +1,5 @@
 qtm
+attrs
+typing
 pyyaml
 rospkg
