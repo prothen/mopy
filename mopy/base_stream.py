@@ -11,42 +11,48 @@ __license__ = "BSD"
 __version__ = "1.0"
 
 import qtm
+import attr
+import numpy
+import signal
+import typing
 import asyncio
-import numpy as np
-import signal as sg
-import transforms3d.quaternions as tf
-
+import concurrent.futures
 import xml.etree.ElementTree as ET
+import transforms3d.quaternions as tf
 
 MM2M = 1.e-3
 
+@attr.s
 class RigidBody:
-    def __init__(self, name):
-        self.name = name
-        self.p = np.zeros(3)
-        self.v = np.zeros(3)
-        self.q = np.zeros(4)
-        self.w = np.zeros(3)
+    name = attr.ib(type=str)
+    p = attr.ib(default=numpy.zeros(3), type=numpy.ndarray)
+    v = attr.ib(default=numpy.zeros(3), type=numpy.ndarray)
+    R = attr.ib(default=numpy.zeros((3, 3)), type=numpy.ndarray)
+    w = attr.ib(default=numpy.zeros(3), type=numpy.ndarray)
 
 
+@attr.s
 class ExternalVision:
-    def __init__(self, model_names=None, debug_is_enabled=False):
-        """ Initialise the external vision class.
 
-            If a list of model names (list of strings) is provided, the
-            selected models will be streamed. Otherwise all models
-            configured in the Qualisys server will be streamed.
+    """ Initialise the external vision class.
 
-        """
-        self._debug_is_enabled = debug_is_enabled
-        self.models_requested = model_names
+        If a list of model names (list of strings) is provided, the
+        selected models will be streamed. Otherwise all models
+        configured in the Qualisys server will be streamed.
+
+    """
+    model_names = attr.ib(default=None, type=typing.Optional[list])
+    body_streams = attr.ib(default=None, type=typing.Optional[dict])
+    bodies = attr.ib(default=None, type=typing.Optional[dict])
+    ip = attr.ib(default="11.0.0.10", type=str)
+    _debug_is_enabled = attr.ib(default=False, type=bool)
+
+    event_loop = attr.ib(default=None, type=typing.Optional[asyncio.BaseEventLoop])
+    is_ok = False
+
+    def __attrs_post_init__(self):
         self.body_streams = dict()
-        self.bodies = dict()
-        self._ip = "11.0.0.10"
-
-        # Define event loop
         self.event_loop = asyncio.get_event_loop()
-        self.is_active = True
 
     @staticmethod
     def create_body_index(xml_string):
@@ -87,9 +93,9 @@ class ExternalVision:
         info_received, bodies_received = packet.get_6d()
         for body_name, body_idx in self.body_streams.items():
             p, R = bodies_received[body_idx]
-            p_m = np.array([p.x, p.y, p.z]) * MM2M
-            R_m = np.array(R.matrix).reshape((3, 3), order='F')
-            if any(np.isnan(p_m)) or any(np.isnan(R_m.flatten())):
+            p_m = numpy.array([p.x, p.y, p.z]) * MM2M
+            R_m = numpy.array(R.matrix).reshape((3, 3), order='F')
+            if any(numpy.isnan(p_m)) or any(numpy.isnan(R_m.flatten())):
                 continue
             # Parse measured states p_m and R_m
             body = self.bodies[body_name]
@@ -109,17 +115,17 @@ class ExternalVision:
 
     async def parse_packets(self, queue):
         """ Process all measurements in queue. """
-        while self.is_active:
-                self._parse_packets(await queue.get())
-                self._apply_filter()
-                self._stream_models()
+        #while self.is_ok:
+        self._parse_packets(await queue.get())
+        self._apply_filter()
+        self._stream_models()
 
     async def loop(self):
         """ Execute the main event loop."""
         try:
             print('Executing event loop now.')
             # Return QRT Connection object (see qtm -> qrt.py)
-            connection = await qtm.connect(self._ip)
+            connection = await qtm.connect(self.ip)
 
             # Terminate loop in case of unsuccessful connection attempt
             if connection is None:
@@ -165,32 +171,46 @@ class ExternalVision:
                                            on_packet=queue.put_nowait)
 
             # Idle event loop and keep streaming data
-            await self.publish_stream()
+            await self.idle()
 
         except asyncio.CancelledError:
             print('Execution of loop interrupted.')
             self.event_loop.stop()
 
-    async def publish_stream(self):
+    async def idle(self):
         """ Execute idle loop to maintain streaming in background. """
         print('Streaming is active for the models:\n--> {0}'.
               format(list(self.body_streams.keys())))
-        while self.is_active:
-            await asyncio.sleep(0.5)
-
-        return self.event_loop.create_future()
+        while self.is_ok:
+            pass
+        ## NOTE: Remove blocking placeholder
+        # await asyncio.sleep(0.1)
+        #return self.event_loop.create_future()
 
     def run(self):
         """ Execute the event loop. """
-        main_loop = asyncio.ensure_future(self.loop())
-        self.event_loop.add_signal_handler(sg.SIGINT, main_loop.cancel)
-        self.event_loop.add_signal_handler(sg.SIGTERM, main_loop.cancel)
-        self.event_loop.run_until_complete(main_loop)
+        self.event_loop.add_signal_handler(signal.SIGINT, main_loop.cancel)
+        self.event_loop.add_signal_handler(signal.SIGTERM, main_loop.cancel)
+
+        task = asyncio.ensure_future(self.loop())
+        self.event_loop.run_until_complete(task)
+
+    def run_threaded(self):
+        loop = asyncio.get_running_loop()
+        loop.run_in_executor(
+                concurrent.futures.ThreadPoolExecutor(),
+                self.run)
+
+    def run_multiprocessed(self):
+        loop = asyncio.get_running_loop()
+        loop.run_in_executor(
+                concurrent.futures.ProcessPoolExecutor(),
+                self.run)
 
 
 class RigidBodyFilter:
     def __init__(self):
         self.placeholder = None
-        self.v_prev = np.zeros((3, 1))
-        self.w_prev = np.zeros((3, 1))
+        self.v_prev = numpy.zeros((3, 1))
+        self.w_prev = numpy.zeros((3, 1))
         # todo generic filter for v and w
