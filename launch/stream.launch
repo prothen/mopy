@@ -24,7 +24,7 @@
         <param name="debug_streams" value="$(arg debug_streams)"/>
 
         <remap from="~pose" to="~pose" />
-        <remap from="~pixi" to="/mavros/odometry/out" />
+        <remap from="~pixi" to="/mavros/odometry/odom" />
 
     </node>
 </launch>
