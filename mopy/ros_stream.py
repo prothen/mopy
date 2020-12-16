@@ -10,9 +10,11 @@ __status__ = "Production"
 __license__ = "BSD"
 __version__ = "1.0"
 
-
+import attr
 import numpy
 import rospy
+import typing
+import transforms3d
 from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from nav_msgs.msg import Odometry
@@ -37,8 +39,7 @@ class ExternalVisionROS(ExternalVision):
 
         # Fetch ros parameters from launch file configurations
         self.models_requested = rospy.get_param('~models', '').split(',')
-        self.models_requested = [None if self.models_requested == [''] else
-                                 self.models_requested][0]
+        self.models_requested = None if self.models_requested == [''] else self.models_requested
         self.filter_active = rospy.get_param('~filter', False)
         use_odom = rospy.get_param('~odom', False)
         use_covariance = rospy.get_param('~covariance', False)
@@ -64,6 +65,7 @@ class ExternalVisionROS(ExternalVision):
                 self._message_conversion = self._to_odom_message_filtered
 
         else:
+            # LEGACY
             self._debug('\t--> Using Pose message.')
             self._message_type = PoseStamped
             self._message_conversion = self._to_pose_message
@@ -82,14 +84,20 @@ class ExternalVisionROS(ExternalVision):
 
     def _apply_filter(self):
         """ Update model states and apply filtering algorithms."""
+        self._debug("Apply filter.")
         pass
+
+    @staticmethod
+    def _to_quaternion(R):
+        return transforms3d.quaternions.mat2quat(R)
 
     def _fill_pose(self, body, pose):
         """ Fill pose with body measurements. """
         p = pose.position
         q = pose.orientation
         p.x, p.y, p.z = body.p.tolist()
-        q.w, q.x, q.y, q.z = body.q.tolist()
+        q_body = self._to_quaternion(body.R)
+        q.w, q.x, q.y, q.z = q_body.tolist()
 
     def _fill_twist(self, body, twist):
         """ Fill twist with body measurements. """
@@ -103,8 +111,8 @@ class ExternalVisionROS(ExternalVision):
         p = pose.pose.position
         q = pose.pose.orientation
         p.x, p.y, p.z = body.p.tolist()
-        q.w, q.x, q.y, q.z = body.q.tolist()
-        # cov = pose.covariance
+        q.w, q.x, q.y, q.z = self._to_quaternion(body.R).tolist()
+        # TODO: cov = pose.covariance
 
     def _fill_twist_cov(self, body, twist):
         """ Fill twist with body measurements and covariance. """
@@ -116,13 +124,15 @@ class ExternalVisionROS(ExternalVision):
 
     def _to_pose_message(self, msg, body):
         """ Parse body measurement to ROS pose message. """
+        print('pose message')
         pose = msg.pose
         self._fill_pose(body, pose)
 
     def _to_odom_message(self, msg, body):
         """ Parse body measurements to ROS odometry message. """
         pose = msg.pose.pose
-        self._fill_message_pose(body, pose)
+        self._fill_pose(body, pose)
+        # TODO: fill velocities / covariances
 
     def _to_odom_message_filtered(self, msg, body):
         """ Parse body measurements and filtered velocities to ROS
@@ -148,14 +158,14 @@ class ExternalVisionROS(ExternalVision):
 
     def _stream_models(self):
         """ Iterate through requested model list and stream to interface. """
+
+        self._debug("Stream bodies.")
         for body_name, body in self.bodies.items():
             self._debug('Stream start: \t{0}'.format(body_name))
-
             msg = self.messages[body_name]
             msg.header.stamp = rospy.Time.now()
             self._message_conversion(msg, body)
             self.publishers[body_name].publish(msg)
-
             self._debug('Stream complete: \t{0}'.format(body_name))
 
 
