@@ -41,7 +41,7 @@ class ExternalVision:
         configured in the Qualisys server will be streamed.
 
     """
-    model_names = attr.ib(default=None, type=typing.Optional[list])
+    stream_models = attr.ib(default=None, type=typing.Optional[list])
     body_streams = attr.ib(default=None, type=typing.Optional[dict])
     bodies = attr.ib(default=None, type=typing.Optional[dict])
     ip = attr.ib(default="11.0.0.10", type=str)
@@ -51,8 +51,9 @@ class ExternalVision:
     is_ok = False
 
     def __attrs_post_init__(self):
+        self.bodies = dict()
         self.body_streams = dict()
-        self.event_loop = asyncio.get_event_loop()
+        self.is_ok = True
 
     @staticmethod
     def create_body_index(xml_string):
@@ -115,10 +116,10 @@ class ExternalVision:
 
     async def parse_packets(self, queue):
         """ Process all measurements in queue. """
-        #while self.is_ok:
-        self._parse_packets(await queue.get())
-        self._apply_filter()
-        self._stream_models()
+        while self.is_ok:
+            self._parse_packets(await queue.get())
+            self._apply_filter()
+            self._stream_models()
 
     async def loop(self):
         """ Execute the main event loop."""
@@ -138,15 +139,15 @@ class ExternalVision:
 
             if self._debug_is_enabled:
                 print('Advertised models: {0}'.format(dict_bodies_advertised))
-                print('Requested models: {0}'.format(self.models_requested))
+                print('Requested models: {0}'.format(self.stream_models))
 
-            if self.models_requested is not None:
+            if self.stream_models is not None:
                 for name, idx in dict_bodies_advertised.items():
-                    if name in self.models_requested:
+                    if name in self.stream_models:
                         if self._debug_is_enabled:
                             print('Found requested model: {0}'.format(name))
                         self.body_streams.update(**{name: idx})
-                for model in self.models_requested:
+                for model in self.stream_models:
                     if model not in self.body_streams.keys():
                         if self._debug_is_enabled:
                             print('Body: {0} is not advertised by QTM. '
@@ -182,30 +183,44 @@ class ExternalVision:
         print('Streaming is active for the models:\n--> {0}'.
               format(list(self.body_streams.keys())))
         while self.is_ok:
-            pass
+            await asyncio.sleep(3600)
         ## NOTE: Remove blocking placeholder
-        # await asyncio.sleep(0.1)
         #return self.event_loop.create_future()
 
     def run(self):
         """ Execute the event loop. """
-        self.event_loop.add_signal_handler(signal.SIGINT, main_loop.cancel)
-        self.event_loop.add_signal_handler(signal.SIGTERM, main_loop.cancel)
-
+        loop = asyncio.get_event_loop()
         task = asyncio.ensure_future(self.loop())
-        self.event_loop.run_until_complete(task)
+        loop.add_signal_handler(signal.SIGINT, task.cancel)
+        loop.add_signal_handler(signal.SIGTERM, task.cancel)
+        loop.run_until_complete(task)
 
-    def run_threaded(self):
-        loop = asyncio.get_running_loop()
-        loop.run_in_executor(
-                concurrent.futures.ThreadPoolExecutor(),
-                self.run)
+    @staticmethod
+    def tramp(corout, *args): 
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        task = asyncio.ensure_future(corout(*args))
+        loop.add_signal_handler(signal.SIGINT, task.cancel)
+        loop.add_signal_handler(signal.SIGTERM, task.cancel)
+        loop.run_until_complete(task)
+        #loop.run_forever()
+ 
+    async def _jumpad(self, pool):
+        loop = asyncio.get_event_loop()
+        # loop = asyncio.get_running_loop()
+        print('starting loop')
+        loop.run_in_executor(pool, self.tramp, self.loop)
+        # await asyncio.sleep(2)
 
     def run_multiprocessed(self):
-        loop = asyncio.get_running_loop()
-        loop.run_in_executor(
-                concurrent.futures.ProcessPoolExecutor(),
-                self.run)
+        loop = asyncio.get_event_loop()
+        pool = concurrent.futures.ProcessPoolExecutor()
+        loop.run_until_complete(self._jumpad(pool))
+
+    def run_multithreaded(self):
+        loop = asyncio.get_event_loop()
+        pool = concurrent.futures.ThreadPoolExecutor()
+        loop.run_until_complete(self._jumpad(pool))
 
 
 class RigidBodyFilter:
