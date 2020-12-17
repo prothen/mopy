@@ -28,7 +28,14 @@ class RigidBody:
     p = attr.ib(default=numpy.zeros(3), type=numpy.ndarray)
     v = attr.ib(default=numpy.zeros(3), type=numpy.ndarray)
     R = attr.ib(default=numpy.zeros((3, 3)), type=numpy.ndarray)
+    q = attr.ib(default=numpy.zeros((4,1)), type=numpy.ndarray)
     w = attr.ib(default=numpy.zeros(3), type=numpy.ndarray)
+
+    def __str__(self):
+        return ("\t Position: {}\n".format(self.p) + 
+                "\t Velocity: {}\n".format(self.v) + 
+                "\t Attitudeq: {}\n".format(self.q) + 
+                "\t Angular velocity: {}\n".format(self.w)) 
 
 
 @attr.s
@@ -45,6 +52,7 @@ class ExternalVision:
     body_streams = attr.ib(default=None, type=typing.Optional[dict])
     bodies = attr.ib(default=None, type=typing.Optional[dict])
     ip = attr.ib(default="11.0.0.10", type=str)
+    callback_handle = attr.ib(default=None, type=typing.Optional[float])
     _debug_is_enabled = attr.ib(default=False, type=bool)
 
     event_loop = attr.ib(default=None, type=typing.Optional[asyncio.BaseEventLoop])
@@ -53,7 +61,6 @@ class ExternalVision:
     def __attrs_post_init__(self):
         self.bodies = dict()
         self.body_streams = dict()
-        self.is_ok = True
 
     @staticmethod
     def create_body_index(xml_string):
@@ -96,8 +103,10 @@ class ExternalVision:
             p, R = bodies_received[body_idx]
             p_m = numpy.array([p.x, p.y, p.z]) * MM2M
             R_m = numpy.array(R.matrix).reshape((3, 3), order='F')
+
             if any(numpy.isnan(p_m)) or any(numpy.isnan(R_m.flatten())):
                 continue
+
             # Parse measured states p_m and R_m
             body = self.bodies[body_name]
             q_m = tf.mat2quat(R_m)
@@ -116,10 +125,16 @@ class ExternalVision:
 
     async def parse_packets(self, queue):
         """ Process all measurements in queue. """
+        loop = asyncio.get_event_loop()
         while self.is_ok:
+            print('wait for conection')
             self._parse_packets(await queue.get())
+            print('aeu')
+            # self._parse_packets(await queue.get())
             self._apply_filter()
             self._stream_models()
+            print('received')
+            await self.callback_handle(self.bodies)
 
     async def loop(self):
         """ Execute the main event loop."""
@@ -167,6 +182,7 @@ class ExternalVision:
             queue = asyncio.Queue()
             asyncio.create_task(self.parse_packets(queue))
 
+            self.is_ok = True
             # Start streaming frames
             await connection.stream_frames(components=["6d"],
                                            on_packet=queue.put_nowait)
@@ -195,6 +211,7 @@ class ExternalVision:
         loop.add_signal_handler(signal.SIGTERM, task.cancel)
         loop.run_until_complete(task)
 
+    # LEGACY
     @staticmethod
     def tramp(corout, *args): 
         loop = asyncio.new_event_loop()
@@ -210,9 +227,11 @@ class ExternalVision:
         # loop = asyncio.get_running_loop()
         print('starting loop')
         loop.run_in_executor(pool, self.tramp, self.loop)
+        print('launched jumpad')
         # await asyncio.sleep(2)
-
+    
     def run_multiprocessed(self):
+        print('start multiprocessed')
         loop = asyncio.get_event_loop()
         pool = concurrent.futures.ProcessPoolExecutor()
         loop.run_until_complete(self._jumpad(pool))
