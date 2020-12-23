@@ -28,6 +28,8 @@ MM2M = 1.e-3
 @attr.s
 class ExternalVisionROS(ExternalVision):
     """ Provides essential methods for the """
+    use_odom = attr.ib(default=False, type=bool)
+    use_covariance = attr.ib(default=False, type=bool)
 
     def __attrs_post_init__(self):
         super().__attrs_post_init__()
@@ -41,8 +43,8 @@ class ExternalVisionROS(ExternalVision):
         self.models_requested = rospy.get_param('~models', '').split(',')
         self.models_requested = None if self.models_requested == [''] else self.models_requested
         self.filter_active = rospy.get_param('~filter', False)
-        use_odom = rospy.get_param('~odom', False)
-        use_covariance = rospy.get_param('~covariance', False)
+        self.use_odom = rospy.get_param('~odom', False)
+        self.use_covariance = rospy.get_param('~covariance', False)
         # todo: future tf publisher
         publish_tf = rospy.get_param('~publish_tf', False)
         self._frame_id = rospy.get_param('~frame_id', False)
@@ -55,7 +57,7 @@ class ExternalVisionROS(ExternalVision):
         self.messages = dict()
         self.publishers = dict()
         self._debug('\nCONFIGURATION')
-        if use_odom:
+        if self.use_odom:
             self._debug('\t--> Using Odometry message.')
             self._message_type = Odometry
             self._message_conversion = self._to_odom_message
@@ -73,7 +75,7 @@ class ExternalVisionROS(ExternalVision):
                 self._debug('\t\tActivated filer but requesting pose message,'
                             'no velocities published.')
 
-        if use_covariance:
+        if self.use_covariance:
             self._debug('\t--> Parsing covariance.')
             self._fill_message_pose = self._fill_pose_cov
             self._fill_message_twist = self._fill_twist_cov
@@ -111,7 +113,7 @@ class ExternalVisionROS(ExternalVision):
         p = pose.pose.position
         q = pose.pose.orientation
         p.x, p.y, p.z = body.p.tolist()
-        q.w, q.x, q.y, q.z = self._to_quaternion(body.R).tolist()
+        q.w, q.x, q.y, q.z = body.q.tolist()
         # TODO: cov = pose.covariance
 
     def _fill_twist_cov(self, body, twist):
@@ -124,7 +126,6 @@ class ExternalVisionROS(ExternalVision):
 
     def _to_pose_message(self, msg, body):
         """ Parse body measurement to ROS pose message. """
-        print('pose message')
         pose = msg.pose
         self._fill_pose(body, pose)
 
@@ -150,8 +151,9 @@ class ExternalVisionROS(ExternalVision):
                                                               queue_size=0)})
             tmp_msg = self._message_type()
             tmp_msg.header.frame_id = self._frame_id
-            tmp_msg.child_frame_id = 'base_link'
-            tmp_msg.pose.covariance = numpy.diag(numpy.ones(6)*1.e-3).flatten()
+            if self.use_odom:
+                tmp_msg.child_frame_id = 'base_link'
+                tmp_msg.pose.covariance = numpy.diag(numpy.ones(6)*1.e-3).flatten()
             #'_'.join(["base_link", body_name])
 
             self.messages.update(**{body_name: tmp_msg})
@@ -159,7 +161,6 @@ class ExternalVisionROS(ExternalVision):
     def _stream_models(self):
         """ Iterate through requested model list and stream to interface. """
 
-        self._debug("Stream bodies.")
         for body_name, body in self.bodies.items():
             self._debug('Stream start: \t{0}'.format(body_name))
             msg = self.messages[body_name]

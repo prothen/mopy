@@ -27,8 +27,10 @@ class RigidBody:
     name = attr.ib(type=str)
     p = attr.ib(default=numpy.zeros(3), type=numpy.ndarray)
     v = attr.ib(default=numpy.zeros(3), type=numpy.ndarray)
+    # Euler - angles
+    a = attr.ib(default=numpy.zeros((3,)), type=numpy.ndarray)
+    q = attr.ib(default=numpy.zeros((4,)), type=numpy.ndarray)
     R = attr.ib(default=numpy.zeros((3, 3)), type=numpy.ndarray)
-    q = attr.ib(default=numpy.zeros((4,1)), type=numpy.ndarray)
     w = attr.ib(default=numpy.zeros(3), type=numpy.ndarray)
 
     def __str__(self):
@@ -61,6 +63,10 @@ class ExternalVision:
     def __attrs_post_init__(self):
         self.bodies = dict()
         self.body_streams = dict()
+        self.callback_handle = self._callback_handle_placeholder if self.callback_handle is None else self.callback_handle
+
+    async def _callback_handle_placeholder(self, *args, **kwargs):
+        pass
 
     @staticmethod
     def create_body_index(xml_string):
@@ -110,6 +116,7 @@ class ExternalVision:
             # Parse measured states p_m and R_m
             body = self.bodies[body_name]
             q_m = tf.mat2quat(R_m)
+            body.R = R_m
             body.p, body.q = p_m, q_m
 
     def _apply_filter(self):
@@ -125,15 +132,12 @@ class ExternalVision:
 
     async def parse_packets(self, queue):
         """ Process all measurements in queue. """
+        print('stream')
         loop = asyncio.get_event_loop()
         while self.is_ok:
-            print('wait for conection')
             self._parse_packets(await queue.get())
-            print('aeu')
-            # self._parse_packets(await queue.get())
             self._apply_filter()
             self._stream_models()
-            print('received')
             await self.callback_handle(self.bodies)
 
     async def loop(self):

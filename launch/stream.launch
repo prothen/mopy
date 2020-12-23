@@ -4,7 +4,7 @@
     <arg name="models" default=""/>
     <arg name="filter" default="False"/>
     <arg name="covariance" default="False"/>
-    <arg name="odom" default="True"/>
+    <arg name="odom" default="False"/>
     <arg name="publish_tf" default="True"/>
     <arg name="frame_id" default="odom"/>
     <arg name="ip" default="11.0.0.10"/>
@@ -24,7 +24,8 @@
         <param name="debug_streams" value="$(arg debug_streams)"/>
 
         <remap from="~pose" to="~pose" />
-        <remap from="~pixi" to="/mavros/odometry/odom" />
+        <!-- remap from="~pixi" to="/mavros/odometry/odom" /-->
+	<remap from="~pixi" to="/mavros/vision_pose/pose" />
 
     </node>
 </launch>
